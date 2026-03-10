@@ -1,0 +1,89 @@
+# =============================================================================
+# CI/CD Pipeline — GitHub Actions
+# =============================================================================
+#
+# WHAT THIS PIPELINE DOES:
+# 1. Triggers on push/PR to main
+# 2. Sets up Python 3.11
+# 3. Installs dependencies
+# 4. Runs ruff linter (FAILS on lint errors)
+# 5. Runs pytest with coverage
+# 6. Builds Docker image (validates Dockerfile)
+#
+# WHY CI/CD?
+#   Every push is automatically validated:
+#   - Lint errors caught before code review
+#   - Tests run on every PR (no "works on my machine")
+#   - Docker build verified (catches Dockerfile regressions)
+#   This is table stakes for any production project.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # ─── Setup ──────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"  # Cache pip packages for faster CI
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ─── Lint ───────────────────────────────────────────────
+      # Ruff is ~100x faster than flake8 (written in Rust)
+      - name: Run linter (ruff)
+        run: |
+          ruff check app/ tests/ --output-format=github
+
+      # ─── Test ───────────────────────────────────────────────
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
+        env:
+          # Override settings for CI (no real DB/Redis needed)
+          APP_ENV: testing
+          DEBUG: "false"
+
+      # ─── Build ──────────────────────────────────────────────
+      # Validates the Dockerfile can build successfully
+      - name: Build Docker image
+        run: |
+          docker build -t url-shortener:ci-${{ github.sha }} .
+
+  # Optional: Build and push to container registry on main
+  docker-push:
+    name: Push Docker Image
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t url-shortener:latest .
+
+      # In production, you'd push to ECR/GCR/DockerHub here:
+      # - name: Push to registry
+      #   run: |
+      #     docker tag url-shortener:latest $REGISTRY/url-shortener:latest
+      #     docker push $REGISTRY/url-shortener:latest

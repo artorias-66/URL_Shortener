@@ -1,0 +1,110 @@
+# =============================================================================
+# Docker Compose — Full Service Stack
+# =============================================================================
+#
+# Three services that form the complete system:
+#
+#   ┌─────────┐     ┌───────────┐     ┌─────────┐
+#   │   API   │────►│ PostgreSQL│     │  Redis   │
+#   │ :8000   │     │  :5432    │     │  :6379   │
+#   │ FastAPI │────►│           │     │          │
+#   └─────────┘     └───────────┘     └─────────┘
+#
+# WHY DOCKER COMPOSE?
+#   - One command to start everything: `docker compose up`
+#   - Consistent environments across dev machines
+#   - Service networking handled automatically
+#   - Easy to add more services (monitoring, message queues, etc.)
+
+services:
+  # ─── API Service ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: url-shortener-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Override DATABASE_URL to use Docker's internal DNS
+      # "postgres" here resolves to the postgres container (service name = hostname)
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/url_shortener
+      REDIS_URL: redis://redis:6379/0
+      BASE_URL: http://localhost:8000
+      APP_ENV: development
+      DEBUG: "true"
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW_SECONDS: 60
+      CACHE_TTL_SECONDS: 3600
+      SHORT_CODE_LENGTH: 7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # WHY depends_on WITH condition?
+    #   Without health checks, Docker starts services in order but doesn't
+    #   WAIT for them to be ready. The API might start before Postgres
+    #   finishes initialization → connection refused → crash.
+    #   service_healthy waits until the health check passes.
+
+    # ─── PostgreSQL Database ──────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: url-shortener-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: url_shortener
+    ports:
+      - "5432:5432"
+    volumes:
+      # Named volume for data persistence
+      # WHY NAMED VOLUMES?
+      #   Without a volume, all data is lost when the container restarts.
+      #   Named volumes persist data across container lifecycle.
+      #   In production, you'd use managed databases (RDS, Cloud SQL).
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Redis Cache ──────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: url-shortener-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    # Redis configuration for production-like behavior
+    command: >
+      redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # WHY maxmemory-policy allkeys-lru?
+    #   When Redis reaches 256MB, it evicts the Least Recently Used keys.
+    #   This is perfect for a URL cache:
+    #   - Hot URLs stay in cache (frequently accessed)
+    #   - Cold URLs are evicted automatically
+    #   - No manual cleanup needed
+    #
+    # ALTERNATIVES:
+    #   - volatile-lru: only evict keys with TTL set
+    #   - noeviction: return errors when full (bad for caches)
+    #   - allkeys-random: random eviction (worse hit rate)
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# Named volumes — persist data across container restarts
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local

@@ -1,0 +1,43 @@
+# Docker ignore file — exclude files from the Docker build context
+# WHY .dockerignore?
+#   Docker sends the entire directory to the daemon as "build context."
+#   Without this, it sends tests, docs, git history, venv, etc.
+#   Result: slower builds and potentially leaking secrets into images.
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+*.egg-info
+venv/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing & Benchmarks (not needed in production image)
+tests/
+benchmarks/
+htmlcov/
+.coverage
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# CI/CD
+.github/
