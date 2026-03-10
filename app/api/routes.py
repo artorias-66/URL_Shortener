@@ -58,6 +58,7 @@ def _build_url_service(
 )
 async def shorten_url(
     request: URLCreateRequest,
+    http_request: Request,
     service: URLService = Depends(_build_url_service),
 ) -> URLResponse:
     """
@@ -71,7 +72,10 @@ async def shorten_url(
 
     Notice: NO business logic here. Just delegation to service.
     """
-    return await service.create_short_url(request)
+    # Derive the base URL from the actual incoming request so the
+    # short_url works on any host (localhost, Vercel, custom domain).
+    base_url = str(http_request.base_url).rstrip("/")
+    return await service.create_short_url(request, base_url=base_url)
 
 
 @router.get(

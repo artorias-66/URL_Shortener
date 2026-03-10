@@ -74,7 +74,9 @@ class URLService:
         self._cache = cache
         self._settings = get_settings()
 
-    async def create_short_url(self, request: URLCreateRequest) -> URLResponse:
+    async def create_short_url(
+        self, request: URLCreateRequest, base_url: str | None = None
+    ) -> URLResponse:
         """
         Create a new shortened URL.
 
@@ -91,6 +93,8 @@ class URLService:
 
         Args:
             request: Validated URL creation request.
+            base_url: The base URL derived from the incoming HTTP request.
+                      Falls back to settings.base_url if not provided.
 
         Returns:
             URLResponse with short URL and metadata.
@@ -125,9 +129,12 @@ class URLService:
             },
         )
 
+        # Use the request's base URL (works on any host: localhost, Vercel, etc.)
+        effective_base = base_url or self._settings.base_url
+
         return URLResponse(
             short_code=short_code,
-            short_url=f"{self._settings.base_url}/{short_code}",
+            short_url=f"{effective_base}/{short_code}",
             original_url=str(request.url),
             created_at=url_record.created_at,
             expires_at=url_record.expires_at,
