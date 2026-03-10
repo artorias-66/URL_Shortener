@@ -28,12 +28,20 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+# Ensure the database URL uses the async driver (asyncpg).
+# Cloud providers like Supabase give you "postgresql://..." but
+# SQLAlchemy's create_async_engine requires "postgresql+asyncpg://...".
+# This normalization prevents the "psycopg2 is not async" error on Vercel.
+_db_url = settings.database_url
+if _db_url.startswith("postgresql://"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Engine: manages the connection pool to PostgreSQL
 # pool_size=20: keep 20 connections ready (avoids connection storm)
 # max_overflow=10: allow 10 extra under peak load, then reject
 # echo=False in production to avoid logging every SQL query
 engine = create_async_engine(
-    settings.database_url,
+    _db_url,
     pool_size=20,
     max_overflow=10,
     echo=settings.debug,
