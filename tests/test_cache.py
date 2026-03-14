@@ -13,7 +13,7 @@ TESTING STRATEGY:
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import redis.asyncio as real_redis
 

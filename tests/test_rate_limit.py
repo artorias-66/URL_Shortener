@@ -14,8 +14,7 @@ TESTING STRATEGY:
   test client with dependency overrides.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

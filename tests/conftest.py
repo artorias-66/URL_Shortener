@@ -22,13 +22,10 @@ TESTING PHILOSOPHY:
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
 
-from app.exceptions import URLExpiredException, URLNotFoundException
 from app.models.url import URL
 from app.schemas.url_schema import URLCreateRequest
 

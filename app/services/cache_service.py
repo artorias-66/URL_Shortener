@@ -40,7 +40,6 @@ CACHING STRATEGY: CACHE-ASIDE (Lazy Loading)
        the service auto-recovers when Redis comes back."
 """
 
-from typing import Any
 
 import redis.asyncio as redis
 

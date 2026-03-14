@@ -20,8 +20,7 @@ TESTING STRATEGY:
 
 from datetime import datetime, timezone
 
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -34,7 +33,6 @@ from app.exceptions import (
     URLShortenerException,
 )
 from app.schemas.url_schema import URLResponse, URLStatsResponse
-from app.services.url_service import URLService
 
 
 def _create_test_app(mock_service: AsyncMock) -> TestClient:
